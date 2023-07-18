@@ -1,0 +1,1 @@
+echo "Using Orientation $1 in Script";
