@@ -15,12 +15,13 @@
 static GMainLoop *loop;
 static GDBusProxy *iio_proxy;
 static gchararray run_script;
+static gboolean show_output;
 static char cwd[PATH_MAX];
 static char sep[1] = "/";
 const char *COMMAND_FORMAT = "%s%s%s \"%s\"";
 
 static void handle_accel_orientation(const gchar *orientation) {
-    g_print("Executing script '%s' with orientation: %s\n", run_script, orientation);
+    if (show_output) g_print("Executing script '%s' with orientation: %s\n", run_script, orientation);
     size_t command_len = strlen(cwd) + strlen(COMMAND_FORMAT) + strlen(orientation) + strlen(run_script);
     char *command = malloc(command_len);
     if (command == NULL) {
@@ -75,7 +76,7 @@ static void appeared_cb(GDBusConnection *connection,
     GError *error = NULL;
     GVariant *ret = NULL;
 
-    g_print("+++ iio-sensor-proxy appeared +++\n");
+    if (show_output) g_print("+++ iio-sensor-proxy appeared +++\n");
 
     iio_proxy = g_dbus_proxy_new_for_bus_sync(G_BUS_TYPE_SYSTEM,
                                               G_DBUS_PROXY_FLAGS_NONE,
@@ -111,7 +112,7 @@ vanished_cb(GDBusConnection *connection,
             gpointer user_data) {
     if (iio_proxy) {
         g_clear_object (&iio_proxy);
-        g_print("--- iio-sensor-proxy vanished, waiting for it to appear ---\n");
+        if (show_output) g_print("--- iio-sensor-proxy vanished, waiting for it to appear ---\n");
     }
 }
 
@@ -119,8 +120,10 @@ int main(int argc, char **argv) {
     g_autoptr(GOptionContext) option_context = NULL;
     g_autoptr(GError) error = NULL;
     gchararray para_run_script = "";
+    gboolean para_show_output = FALSE;
     const GOptionEntry options[] = {
-            {"path", 'p', 0, G_OPTION_ARG_STRING, &para_run_script, "Path to Script to Run. First Param is Screen-Orientation", NULL},
+            {"path",        'p', 0, G_OPTION_ARG_FILENAME, &para_run_script, "Path to script to run. First param ($1) of script is screen orientation", NULL},
+            {"show_output", 'o', 0, G_OPTION_ARG_NONE,     &para_show_output, "This binary will show an output when the screen orientation changes",     NULL},
             {NULL}
     };
     int ret = 0;
@@ -161,14 +164,15 @@ int main(int argc, char **argv) {
         sep[0] = 0;
     }
     run_script = para_run_script;
+    show_output = para_show_output;
+
     g_bus_watch_name(G_BUS_TYPE_SYSTEM,
                      "net.hadess.SensorProxy",
                      G_BUS_NAME_WATCHER_FLAGS_NONE,
                      appeared_cb,
                      vanished_cb,
                      NULL, NULL);
-
-    g_print("Waiting for iio-sensor-proxy to appear\n");
+    if (show_output) g_print("Waiting for iio-sensor-proxy to appear\n");
     loop = g_main_loop_new(NULL, TRUE);
     g_main_loop_run(loop);
 
