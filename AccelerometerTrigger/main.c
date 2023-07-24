@@ -16,7 +16,8 @@ static GMainLoop *loop;
 static GDBusProxy *iio_proxy;
 static gchararray run_script;
 static char cwd[PATH_MAX];
-const char *COMMAND_FORMAT = "%s/%s \"%s\"";
+static char sep[1] = "/";
+const char *COMMAND_FORMAT = "%s%s%s \"%s\"";
 
 static void handle_accel_orientation(const gchar *orientation) {
     g_print("Executing script '%s' with orientation: %s\n", run_script, orientation);
@@ -26,7 +27,7 @@ static void handle_accel_orientation(const gchar *orientation) {
         perror("malloc() error");
         exit(EXIT_FAILURE);
     }
-    snprintf(command, command_len, COMMAND_FORMAT, cwd, run_script, orientation);
+    snprintf(command, command_len, COMMAND_FORMAT, cwd, sep, run_script, orientation);
     int retVal = system(command);
     free(command);
     if (retVal) {
@@ -117,9 +118,9 @@ vanished_cb(GDBusConnection *connection,
 int main(int argc, char **argv) {
     g_autoptr(GOptionContext) option_context = NULL;
     g_autoptr(GError) error = NULL;
-    gchararray opt_run_script = "";
+    gchararray para_run_script = "";
     const GOptionEntry options[] = {
-            {"path", 'p', 0, G_OPTION_ARG_STRING, &opt_run_script, "Path to Script to Run. First Param is Screen-Orientation", NULL},
+            {"path", 'p', 0, G_OPTION_ARG_STRING, &para_run_script, "Path to Script to Run. First Param is Screen-Orientation", NULL},
             {NULL}
     };
     int ret = 0;
@@ -127,21 +128,26 @@ int main(int argc, char **argv) {
     setlocale(LC_ALL, "");
     option_context = g_option_context_new("");
     g_option_context_add_main_entries(option_context, options, NULL);
-
     ret = g_option_context_parse(option_context, &argc, &argv, &error);
     if (!ret) {
         g_print("Failed to parse arguments: %s\n", error->message);
         return EXIT_FAILURE;
     }
 
-    if (access(opt_run_script, F_OK)) {
-        g_print("Script '%s' not found.\n", opt_run_script);
+    if (strlen(para_run_script) == 0) {
+        g_option_context_set_summary(option_context, "Path is not specified");
+        g_print(g_option_context_get_help(option_context, TRUE, NULL));
+        return EXIT_FAILURE;
+    }
+
+    if (access(para_run_script, F_OK)) {
+        g_print("Script '%s' not found.\n", para_run_script);
         return EXIT_FAILURE;
     }
 
     struct stat sb;
-    if (stat(opt_run_script, &sb) != 0 || !(sb.st_mode & S_IXUSR)) {
-        g_print("Script '%s' is not executable.\n", opt_run_script);
+    if (stat(para_run_script, &sb) != 0 || !(sb.st_mode & S_IXUSR)) {
+        g_print("Script '%s' is not executable.\n", para_run_script);
         return EXIT_FAILURE;
     }
 
@@ -150,8 +156,11 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-    run_script = opt_run_script;
-
+    if (strncmp(cwd, para_run_script, strlen(cwd)) == 0) {
+        memset(cwd, 0, sizeof(cwd));
+        sep[0] = 0;
+    }
+    run_script = para_run_script;
     g_bus_watch_name(G_BUS_TYPE_SYSTEM,
                      "net.hadess.SensorProxy",
                      G_BUS_NAME_WATCHER_FLAGS_NONE,
