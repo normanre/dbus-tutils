@@ -25,7 +25,7 @@ cmake --build build
 ### AccelerometerTrigger
 
 This Binary is used to execute a shell script after the accelerometer registers a change. The shell script gets the new 
-orientation passed as the first parameter. This Binary ist strongly inspired by [monitor-sensor](https://gitlab.freedesktop.org/hadess/iio-sensor-proxy/-/blob/master/src/monitor-sensor.c).
+orientation passed as the first parameter. This binary is strongly inspired by [monitor-sensor](https://gitlab.freedesktop.org/hadess/iio-sensor-proxy/-/blob/master/src/monitor-sensor.c).
 
 
 The Binary will be generated under `AccelerometerTrigger/output`. 
@@ -36,3 +36,8 @@ cd AccelerometerTrigger/output
 ```
 For more information use `./accelerometer-trigger --help`
 
+Orientientations are:
+* normal
+* bottom-up
+* left-up
+* right-up
